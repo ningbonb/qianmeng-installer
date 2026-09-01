@@ -46,7 +46,7 @@
 
 两个脚本均会在后台检查本仓库的最新 GitHub Release，不会阻塞当前启动。发现较新的版本后，会在下一次启动时询问是否下载；下载内容在下一次启动时校验并替换当前脚本。
 
-发布前更新两个脚本顶部的 `QIANMENG_INSTALLER_VERSION`，并创建同版本 GitHub Release，例如 `v0.1.0`。安装器仓库必须保持为 `ningbonb/qianmeng-installer`，以便后续产品版本依赖可追溯。
+发布前更新两个脚本顶部的 `QIANMENG_INSTALLER_VERSION`，并创建同版本 GitHub Release，例如 `v0.1.1`。安装器仓库必须保持为 `ningbonb/qianmeng-installer`，以便后续产品版本依赖可追溯。
 
 ## 许可证
 

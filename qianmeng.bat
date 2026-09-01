@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 chcp 65001 >nul
 
-set "QIANMENG_INSTALLER_VERSION=0.1.0"
+set "QIANMENG_INSTALLER_VERSION=0.1.1"
 set "STATE_DIR=%USERPROFILE%\.qianmeng-installer"
 set "LOG_FILE=%STATE_DIR%\qianmeng.log"
 set "LOGO_URL=https://sales.ws.126.net/minisite/2026/0901/1788255726_logo.png"
@@ -120,6 +120,12 @@ if defined DSH_HOME set "PRODUCT_PROFILE=%DSH_HOME%\profiles\web"
 if not exist "%PRODUCT_PROFILE%" mkdir "%PRODUCT_PROFILE%" >nul 2>&1
 set "PRODUCT_PATCH=%PRODUCT_PROFILE%\cordis.patch.yml"
 if not exist "%PRODUCT_PATCH%" type nul > "%PRODUCT_PATCH%"
+set "PATCH_FIRST_LINE="
+set /p "PATCH_FIRST_LINE=" < "%PRODUCT_PATCH%"
+if not "%PATCH_FIRST_LINE%"=="[]" goto brand_patch_normalized
+more +1 "%PRODUCT_PATCH%" > "%PRODUCT_PATCH%.new"
+move /y "%PRODUCT_PATCH%.new" "%PRODUCT_PATCH%" >nul 2>&1
+:brand_patch_normalized
 findstr /c:"# qianmeng-installer managed brand configuration" "%PRODUCT_PATCH%" >nul 2>&1
 if not errorlevel 1 exit /b 0
 >> "%PRODUCT_PATCH%" echo.

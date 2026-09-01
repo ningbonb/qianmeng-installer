@@ -1,7 +1,7 @@
 #!/bin/bash
 # 千梦一键入口 — macOS（Linux 下也可通过 bash 运行）。
 
-QIANMENG_INSTALLER_VERSION="0.1.0"
+QIANMENG_INSTALLER_VERSION="0.1.1"
 STATE_DIR="$HOME/.qianmeng-installer"
 LOG_FILE="$STATE_DIR/qianmeng.log"
 REPO='ningbonb/qianmeng-installer'
@@ -150,6 +150,9 @@ configure_brand() {
   patch="$profile/cordis.patch.yml"
   mkdir -p "$profile"
   [ -f "$patch" ] || : > "$patch"
+  if [ "$(head -1 "$patch")" = '[]' ]; then
+    tail -n +2 "$patch" > "$patch.new" && mv -f "$patch.new" "$patch"
+  fi
   grep -q "^$BRAND_MARKER$" "$patch" && return 0
   cat >> "$patch" <<EOF
 
