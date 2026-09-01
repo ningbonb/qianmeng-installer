@@ -10,16 +10,10 @@
 
 ## 开始使用
 
-<p align="center">
-  <a href="https://github.com/ningbonb/qianmeng-installer/raw/refs/heads/main/qianmeng.command">下载 macOS 版</a>
-  ·
-  <a href="https://github.com/ningbonb/qianmeng-installer/raw/refs/heads/main/qianmeng.bat">下载 Windows 版</a>
-</p>
-
-| 文件 | 平台 |
-| --- | --- |
-| `qianmeng.command` | macOS（Linux 下也可通过 `bash` 运行） |
-| `qianmeng.bat` | Windows |
+| 文件 | 平台 | 下载 |
+| --- | --- | --- |
+| `qianmeng.command` | macOS（Linux 下也可通过 `bash` 运行） | [下载 macOS 版](https://github.com/ningbonb/qianmeng-installer/releases/latest/download/qianmeng.command) |
+| `qianmeng.bat` | Windows | [下载 Windows 版](https://github.com/ningbonb/qianmeng-installer/releases/latest/download/qianmeng.bat) |
 
 1. 双击 `qianmeng.command`，macOS 若系统阻止打开，请右键选择「打开」。Windows 双击 `qianmeng.bat`。
 2. 首次运行会自动安装所需组件。Windows 安装 Node.js 后如提示刷新环境，请关闭窗口再运行一次。

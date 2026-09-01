@@ -90,4 +90,5 @@ Windows 改动至少审查批处理控制流、UTF-8 编码和 `cmd.exe` 的变�
 3. 运行对应的静态检查和隔离启动验证。
 4. 提交并推送 `main`。
 5. 创建相同版本号的 GitHub Release，例如 `v0.1.3`。
-6. 确认 GitHub `releases/latest` 返回新 tag；这是安装器异步更新检测的唯一 Release 来源。
+6. 上传 `qianmeng.command` 与 `qianmeng.bat` 作为 Release 附件。
+7. 确认 GitHub `releases/latest` 返回新 tag；这是安装器异步更新检测的唯一 Release 来源。
