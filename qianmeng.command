@@ -1,7 +1,7 @@
 #!/bin/bash
 # 千梦一键入口 — macOS（Linux 下也可通过 bash 运行）。
 
-QIANMENG_INSTALLER_VERSION="0.1.1"
+QIANMENG_INSTALLER_VERSION="0.1.2"
 STATE_DIR="$HOME/.qianmeng-installer"
 LOG_FILE="$STATE_DIR/qianmeng.log"
 REPO='ningbonb/qianmeng-installer'
@@ -61,6 +61,38 @@ check_update_in_background() {
     local latest
     latest="$(curl -fsSL -m 5 "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -1)"
     [ -n "$latest" ] && printf '%s\n' "$latest" > "$STATE_DIR/latest_tag"
+  ) >/dev/null 2>&1 &
+}
+
+prompt_dsh_update() {
+  local current latest seen answer
+  current="$(dsh --version 2>/dev/null | tr -d 'v')"
+  latest="$(cat "$STATE_DIR/dsh_latest_version" 2>/dev/null)"
+  seen="$(cat "$STATE_DIR/dsh_seen_version" 2>/dev/null)"
+  [ -n "$current" ] && [ -n "$latest" ] && [ "$latest" != "$seen" ] || return 0
+  version_is_newer "$latest" "$current" || return 0
+  echo "DeepSeek Harness 有新版本：v$latest（当前：v$current）"
+  printf '现在更新 DeepSeek Harness？[y/N] '
+  read -r -t 5 answer
+  if [ "$answer" = y ] || [ "$answer" = Y ]; then
+    configure_npm_prefix || return 1
+    echo '正在更新 DeepSeek Harness…'
+    $NPM install -g @deepseek-ai/dsh@latest || return 1
+    fix_path
+    dsh_ok || return 1
+    return 0
+  fi
+  mkdir -p "$STATE_DIR"
+  printf '%s\n' "$latest" > "$STATE_DIR/dsh_seen_version"
+}
+
+check_dsh_update_in_background() {
+  dsh_ok || return 0
+  mkdir -p "$STATE_DIR"
+  (
+    local latest
+    latest="$(npm view @deepseek-ai/dsh version --silent 2>/dev/null | head -1)"
+    [ -n "$latest" ] && printf '%s\n' "$latest" > "$STATE_DIR/dsh_latest_version"
   ) >/dev/null 2>&1 &
 }
 
@@ -261,6 +293,9 @@ main() {
     $NPM install -g @deepseek-ai/dsh || pause_then_exit
     fix_path
     dsh_ok || { echo 'dsh 安装后仍不可用。'; pause_then_exit; }
+  else
+    prompt_dsh_update || { echo 'DeepSeek Harness 更新失败。'; pause_then_exit; }
+    check_dsh_update_in_background
   fi
   ensure_product_setup || { echo '千梦组件安装或配置失败。'; pause_then_exit; }
   choose_mode

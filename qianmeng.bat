@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 chcp 65001 >nul
 
-set "QIANMENG_INSTALLER_VERSION=0.1.1"
+set "QIANMENG_INSTALLER_VERSION=0.1.2"
 set "STATE_DIR=%USERPROFILE%\.qianmeng-installer"
 set "LOG_FILE=%STATE_DIR%\qianmeng.log"
 set "LOGO_URL=https://sales.ws.126.net/minisite/2026/0901/1788255726_logo.png"
@@ -17,6 +17,9 @@ start "" /b powershell -NoProfile -WindowStyle Hidden -Command "$ErrorActionPref
 if exist "%APPDATA%\npm" set "PATH=%APPDATA%\npm;%PATH%"
 call :find_dsh
 if errorlevel 1 goto install
+call :prompt_dsh_update
+if errorlevel 1 goto fail
+start "" /b powershell -NoProfile -WindowStyle Hidden -Command "$ErrorActionPreference='SilentlyContinue'; $version=(npm view @deepseek-ai/dsh version --silent).Trim(); if($version){ New-Item -ItemType Directory -Force -Path '%STATE_DIR%' ^| Out-Null; Set-Content -NoNewline -Encoding ascii -Path '%STATE_DIR%\dsh_latest_version' -Value $version }"
 goto setup
 
 :install
@@ -94,6 +97,33 @@ exit /b 0
 :mark_update_seen
 if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
 > "%STATE_DIR%\seen_tag" echo %LATEST_TAG%
+exit /b 0
+
+:prompt_dsh_update
+if not exist "%STATE_DIR%\dsh_latest_version" exit /b 0
+set /p "DSH_LATEST_VERSION=" < "%STATE_DIR%\dsh_latest_version"
+if not defined DSH_LATEST_VERSION exit /b 0
+set "DSH_SEEN_VERSION="
+if exist "%STATE_DIR%\dsh_seen_version" set /p "DSH_SEEN_VERSION=" < "%STATE_DIR%\dsh_seen_version"
+if "%DSH_LATEST_VERSION%"=="%DSH_SEEN_VERSION%" exit /b 0
+set "DSH_CURRENT_VERSION="
+for /f "delims=" %%v in ('call "%DSH_CMD%" --version') do if not defined DSH_CURRENT_VERSION set "DSH_CURRENT_VERSION=%%v"
+if not defined DSH_CURRENT_VERSION exit /b 0
+powershell -NoProfile -Command "try { if(([version]('%DSH_LATEST_VERSION%'.TrimStart('v'))) -gt ([version]('%DSH_CURRENT_VERSION%'.TrimStart('v'))) { exit 0 }; exit 1 } catch { exit 1 }"
+if errorlevel 1 exit /b 0
+echo DeepSeek Harness 有新版本：v%DSH_LATEST_VERSION%（当前：v%DSH_CURRENT_VERSION%）
+choice /c YN /n /t 5 /d N /m "现在更新 DeepSeek Harness？ [Y/N]"
+if errorlevel 2 goto mark_dsh_update_seen
+echo 正在更新 DeepSeek Harness…
+call npm install -g @deepseek-ai/dsh@latest
+if errorlevel 1 exit /b 1
+if exist "%APPDATA%\npm" set "PATH=%APPDATA%\npm;%PATH%"
+call :find_dsh
+exit /b %ERRORLEVEL%
+
+:mark_dsh_update_seen
+if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
+> "%STATE_DIR%\dsh_seen_version" echo %DSH_LATEST_VERSION%
 exit /b 0
 
 :ensure_product_setup
