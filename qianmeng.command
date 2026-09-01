@@ -1,0 +1,205 @@
+#!/bin/bash
+# 千梦一键入口 — macOS（Linux 下也可通过 bash 运行）。
+
+QIANMENG_INSTALLER_VERSION="0.1.0"
+STATE_DIR="$HOME/.qianmeng-installer"
+LOG_FILE="$STATE_DIR/qianmeng.log"
+BRAND_MARKER='# qianmeng-installer managed brand configuration'
+LOGO_URL='https://sales.ws.126.net/minisite/2026/0901/1788255726_logo.png'
+
+fix_path() {
+  export PATH="$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+  for directory in "$HOME"/.nvm/versions/node/*/bin; do
+    [ -d "$directory" ] && PATH="$directory:$PATH"
+  done
+}
+
+pause_then_exit() {
+  printf '按回车退出'
+  read -r _
+  exit 1
+}
+
+node_version_ok() {
+  local version major minor
+  version="$(node -v 2>/dev/null | tr -d 'v')"
+  [ -n "$version" ] || return 1
+  major="${version%%.*}"
+  minor="${version#*.}"; minor="${minor%%.*}"
+  case "$major" in ''|*[!0-9]*) return 1 ;; esac
+  case "$minor" in ''|*[!0-9]*) minor=0 ;; esac
+  [ "$major" -ge 24 ] || { [ "$major" -eq 22 ] && [ "$minor" -ge 19 ]; }
+}
+
+install_node() {
+  if command -v brew >/dev/null 2>&1; then
+    echo '正在通过 Homebrew 安装 Node.js…'
+    brew install node || return 1
+    fix_path
+    return 0
+  fi
+  echo '请从 https://nodejs.org 安装 Node.js 后重新运行。'
+  return 1
+}
+
+dsh_ok() {
+  command -v dsh >/dev/null 2>&1 && dsh --version >/dev/null 2>&1
+}
+
+configure_npm_prefix() {
+  local npm_root choice
+  npm_root="$(npm root -g 2>/dev/null)"
+  if [ -n "$npm_root" ] && [ -d "$npm_root" ] && [ -w "$npm_root" ]; then
+    NPM='npm'
+    return 0
+  fi
+  echo 'npm 全局目录不可写。'
+  echo '  [1] 使用 sudo（需要密码）'
+  echo '  [2] 使用用户目录 ~/.npm-global（默认）'
+  printf '输入编号 [2]: '
+  read -r choice
+  if [ "${choice:-2}" = '1' ]; then
+    NPM='sudo npm'
+    return 0
+  fi
+  mkdir -p "$HOME/.npm-global"
+  npm config set prefix "$HOME/.npm-global" || return 1
+  export PATH="$HOME/.npm-global/bin:$PATH"
+  NPM='npm'
+}
+
+profile_dir() {
+  printf '%s/profiles/web\n' "${DSH_HOME:-$HOME/.dsh}"
+}
+
+plugin_installed() {
+  local profile
+  profile="$(profile_dir)"
+  [ -f "$profile/package.json" ] && grep -q "\"$1\"" "$profile/package.json"
+}
+
+ensure_plugin() {
+  local plugin="$1"
+  if plugin_installed "$plugin"; then
+    return 0
+  fi
+  echo "正在安装：$plugin"
+  dsh plugin --profile web add "$plugin"
+}
+
+configure_brand() {
+  local profile patch
+  profile="$(profile_dir)"
+  patch="$profile/cordis.patch.yml"
+  mkdir -p "$profile"
+  [ -f "$patch" ] || : > "$patch"
+  grep -q "^$BRAND_MARKER$" "$patch" && return 0
+  cat >> "$patch" <<EOF
+
+$BRAND_MARKER
+- id: dsh-client-ui-brand
+  config:
+    productName: 千梦
+    logoUrl: $LOGO_URL
+    logoAlt: 千梦 logo
+EOF
+}
+
+ensure_product_setup() {
+  ensure_plugin dsh-client-ui-brand || return 1
+  ensure_plugin dsh-web-desktop || return 1
+  configure_brand || return 1
+  echo '千梦组件已就绪。'
+}
+
+port_pids() {
+  lsof -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null
+}
+
+open_url() {
+  if command -v open >/dev/null 2>&1; then
+    open "$1" 2>/dev/null || true
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$1" 2>/dev/null || true
+  else
+    echo "$1"
+  fi
+}
+
+launch_web() {
+  local port="${DSH_WEB_PORT:-3080}" pids pid choice status
+  pids="$(port_pids "$port")"
+  if [ -n "$pids" ]; then
+    echo "端口已被占用：127.0.0.1:$port"
+    echo '  [1] 结束旧进程并重启（默认）'
+    echo '  [2] 直接打开已运行的页面'
+    echo '  [3] 返回'
+    printf '输入编号 [1]: '
+    read -r choice
+    case "${choice:-1}" in
+      2) open_url "http://127.0.0.1:$port"; return 0 ;;
+      3) return 0 ;;
+      *)
+        for pid in $pids; do kill "$pid" 2>/dev/null || true; done
+        sleep 1
+        ;;
+    esac
+  fi
+  mkdir -p "$STATE_DIR"
+  echo "==== $(date '+%F %T') web launch ====" >> "$LOG_FILE"
+  dsh web 2>&1 | tee -a "$LOG_FILE"
+  status=${PIPESTATUS[0]}
+  [ "$status" -eq 0 ] || echo "启动失败，日志：$LOG_FILE"
+  return "$status"
+}
+
+launch_desktop() {
+  local notice_file="$STATE_DIR/desktop_first_use" status
+  mkdir -p "$STATE_DIR"
+  if [ ! -f "$notice_file" ]; then
+    echo '首次启动客户端可能需要下载 Electron，请耐心等待；后续启动不会重复下载。'
+    : > "$notice_file"
+  fi
+  echo "==== $(date '+%F %T') desktop launch ====" >> "$LOG_FILE"
+  dsh plugin --profile web exec dsh-web-desktop -- --port 0 2>&1 | tee -a "$LOG_FILE"
+  status=${PIPESTATUS[0]}
+  [ "$status" -eq 0 ] || echo "启动失败，日志：$LOG_FILE"
+  return "$status"
+}
+
+choose_mode() {
+  local choice
+  echo ''
+  echo '请选择使用方式：'
+  echo '  [1] 浏览器 Web（默认）'
+  echo '  [2] 千梦客户端'
+  printf '输入编号 [1]: '
+  read -r choice
+  case "${choice:-1}" in
+    2) launch_desktop ;;
+    *) launch_web ;;
+  esac
+}
+
+main() {
+  fix_path
+  if ! dsh_ok; then
+    echo '未找到 dsh（或不可用），开始安装千梦所需组件。'
+    if ! node_version_ok; then
+      echo '检查 Node.js…'
+      install_node || pause_then_exit
+    fi
+    node_version_ok || { echo 'Node.js 版本需要 22.19+ 或 24+。'; pause_then_exit; }
+    configure_npm_prefix || pause_then_exit
+    echo '安装 pnpm…'
+    $NPM install -g pnpm || pause_then_exit
+    echo '安装 dsh…'
+    $NPM install -g @deepseek-ai/dsh || pause_then_exit
+    fix_path
+    dsh_ok || { echo 'dsh 安装后仍不可用。'; pause_then_exit; }
+  fi
+  ensure_product_setup || { echo '千梦组件安装或配置失败。'; pause_then_exit; }
+  choose_mode
+}
+
+main "$@"
