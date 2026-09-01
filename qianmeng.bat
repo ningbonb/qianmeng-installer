@@ -2,11 +2,15 @@
 setlocal EnableExtensions
 chcp 65001 >nul
 
-set "QIANMENG_INSTALLER_VERSION=0.1.2"
+set "QIANMENG_INSTALLER_VERSION=0.1.3"
 set "STATE_DIR=%USERPROFILE%\.qianmeng-installer"
 set "LOG_FILE=%STATE_DIR%\qianmeng.log"
 set "LOGO_URL=https://sales.ws.126.net/minisite/2026/0901/1788255726_logo.png"
 set "REPO=ningbonb/qianmeng-installer"
+set "BRAND_PLUGIN_NAME=dsh-client-ui-brand"
+set "BRAND_PLUGIN_SPEC=dsh-client-ui-brand@0.1.10"
+set "DESKTOP_PLUGIN_NAME=dsh-web-desktop"
+set "DESKTOP_PLUGIN_SPEC=dsh-web-desktop@0.1.0"
 
 set "PENDING_UPDATE_APPLIED="
 if exist "%~dp0qianmeng.bat.new" call :apply_pending_update
@@ -127,21 +131,32 @@ if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
 exit /b 0
 
 :ensure_product_setup
-call :ensure_plugin dsh-client-ui-brand
+set "RECONCILE_COMPONENTS=0"
+set "COMPONENTS_VERSION="
+if exist "%STATE_DIR%\components_version" set /p "COMPONENTS_VERSION=" < "%STATE_DIR%\components_version"
+if not "%COMPONENTS_VERSION%"=="%QIANMENG_INSTALLER_VERSION%" set "RECONCILE_COMPONENTS=1"
+call :ensure_plugin "%BRAND_PLUGIN_NAME%" "%BRAND_PLUGIN_SPEC%"
 if errorlevel 1 exit /b 1
-call :ensure_plugin dsh-web-desktop
+call :ensure_plugin "%DESKTOP_PLUGIN_NAME%" "%DESKTOP_PLUGIN_SPEC%"
 if errorlevel 1 exit /b 1
 call :configure_brand
-exit /b %ERRORLEVEL%
+if errorlevel 1 exit /b 1
+if not "%RECONCILE_COMPONENTS%"=="1" exit /b 0
+if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
+> "%STATE_DIR%\components_version" echo %QIANMENG_INSTALLER_VERSION%
+exit /b 0
 
 :ensure_plugin
 set "PRODUCT_PLUGIN=%~1"
+set "PRODUCT_PLUGIN_SPEC=%~2"
 set "PRODUCT_PROFILE=%USERPROFILE%\.dsh\profiles\web"
 if defined DSH_HOME set "PRODUCT_PROFILE=%DSH_HOME%\profiles\web"
+if "%RECONCILE_COMPONENTS%"=="1" goto install_product_plugin
 if exist "%PRODUCT_PROFILE%\package.json" findstr /c:%PRODUCT_PLUGIN% "%PRODUCT_PROFILE%\package.json" >nul 2>&1
 if not errorlevel 1 exit /b 0
-echo 正在安装：%PRODUCT_PLUGIN%
-call "%DSH_CMD%" plugin --profile web add "%PRODUCT_PLUGIN%"
+:install_product_plugin
+echo 正在安装或更新：%PRODUCT_PLUGIN_SPEC%
+call "%DSH_CMD%" plugin --profile web add "%PRODUCT_PLUGIN_SPEC%"
 exit /b %ERRORLEVEL%
 
 :configure_brand

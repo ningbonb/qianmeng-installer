@@ -38,6 +38,17 @@
 
 `cordis.patch.yml` 必须是 YAML 顶层数组。文件内容为 `[]` 时，写入品牌条目前必须移除这个空数组；不能将新的 `- id` 条目追加在 `[]` 后面。
 
+## 组件版本清单
+
+安装器顶部声明当前 Release 验证过的插件版本：
+
+| 组件 | 当前声明 |
+| --- | --- |
+| 品牌插件 | `dsh-client-ui-brand@0.1.10` |
+| 客户端插件 | `dsh-web-desktop@0.1.0` |
+
+首次安装会以完整 spec 安装这两个版本。安装器 Release 更新后，脚本会检测 `components_version` 与当前 `QIANMENG_INSTALLER_VERSION` 不同，并再次以完整 spec 执行 `dsh plugin --profile web add`。这会把 profile 对齐到新 Release 的组件清单；平时启动不会重复更新插件。
+
 ## 启动行为
 
 - Web：运行 `dsh web`，默认使用端口 `3080`；端口已占用时提示用户处理。
@@ -74,8 +85,9 @@ Windows 改动至少审查批处理控制流、UTF-8 编码和 `cmd.exe` 的变�
 
 ## 发布
 
-1. 同时更新 `qianmeng.command` 和 `qianmeng.bat` 顶部的 `QIANMENG_INSTALLER_VERSION`。
-2. 运行对应的静态检查和隔离启动验证。
-3. 提交并推送 `main`。
-4. 创建相同版本号的 GitHub Release，例如 `v0.1.2`。
-5. 确认 GitHub `releases/latest` 返回新 tag；这是安装器异步更新检测的唯一 Release 来源。
+1. 选定经过验证的品牌与客户端插件版本，并同时更新两个脚本和本文档的组件清单。
+2. 同时更新 `qianmeng.command` 和 `qianmeng.bat` 顶部的 `QIANMENG_INSTALLER_VERSION`。
+3. 运行对应的静态检查和隔离启动验证。
+4. 提交并推送 `main`。
+5. 创建相同版本号的 GitHub Release，例如 `v0.1.3`。
+6. 确认 GitHub `releases/latest` 返回新 tag；这是安装器异步更新检测的唯一 Release 来源。

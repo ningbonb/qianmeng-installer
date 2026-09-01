@@ -1,12 +1,16 @@
 #!/bin/bash
 # 千梦一键入口 — macOS（Linux 下也可通过 bash 运行）。
 
-QIANMENG_INSTALLER_VERSION="0.1.2"
+QIANMENG_INSTALLER_VERSION="0.1.3"
 STATE_DIR="$HOME/.qianmeng-installer"
 LOG_FILE="$STATE_DIR/qianmeng.log"
 REPO='ningbonb/qianmeng-installer'
 BRAND_MARKER='# qianmeng-installer managed brand configuration'
 LOGO_URL='https://sales.ws.126.net/minisite/2026/0901/1788255726_logo.png'
+BRAND_PLUGIN_NAME='dsh-client-ui-brand'
+BRAND_PLUGIN_SPEC='dsh-client-ui-brand@0.1.10'
+DESKTOP_PLUGIN_NAME='dsh-web-desktop'
+DESKTOP_PLUGIN_SPEC='dsh-web-desktop@0.1.0'
 
 version_is_newer() {
   awk -v candidate="${1#v}" -v current="${2#v}" 'BEGIN {
@@ -168,12 +172,12 @@ plugin_installed() {
 }
 
 ensure_plugin() {
-  local plugin="$1"
-  if plugin_installed "$plugin"; then
+  local plugin="$1" spec="$2"
+  if [ "$RECONCILE_COMPONENTS" != '1' ] && plugin_installed "$plugin"; then
     return 0
   fi
-  echo "正在安装：$plugin"
-  dsh plugin --profile web add "$plugin"
+  echo "正在安装或更新：$spec"
+  dsh plugin --profile web add "$spec"
 }
 
 configure_brand() {
@@ -198,9 +202,18 @@ EOF
 }
 
 ensure_product_setup() {
-  ensure_plugin dsh-client-ui-brand || return 1
-  ensure_plugin dsh-web-desktop || return 1
+  local components_file installed_components
+  components_file="$STATE_DIR/components_version"
+  installed_components="$(cat "$components_file" 2>/dev/null)"
+  RECONCILE_COMPONENTS=0
+  [ "$installed_components" = "$QIANMENG_INSTALLER_VERSION" ] || RECONCILE_COMPONENTS=1
+  ensure_plugin "$BRAND_PLUGIN_NAME" "$BRAND_PLUGIN_SPEC" || return 1
+  ensure_plugin "$DESKTOP_PLUGIN_NAME" "$DESKTOP_PLUGIN_SPEC" || return 1
   configure_brand || return 1
+  if [ "$RECONCILE_COMPONENTS" = '1' ]; then
+    mkdir -p "$STATE_DIR"
+    printf '%s\n' "$QIANMENG_INSTALLER_VERSION" > "$components_file"
+  fi
   echo '千梦组件已就绪。'
 }
 
