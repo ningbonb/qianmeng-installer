@@ -10,6 +10,12 @@
 
 ## 开始使用
 
+<p align="center">
+  <a href="https://github.com/ningbonb/qianmeng-installer/raw/refs/heads/main/qianmeng.command">下载 macOS 版</a>
+  ·
+  <a href="https://github.com/ningbonb/qianmeng-installer/raw/refs/heads/main/qianmeng.bat">下载 Windows 版</a>
+</p>
+
 | 文件 | 平台 |
 | --- | --- |
 | `qianmeng.command` | macOS（Linux 下也可通过 `bash` 运行） |
