@@ -4,9 +4,9 @@
 <h1 align="center">千梦</h1>
 
 
-千梦基于 DeepSeek Harness 定制的 Agent，本安装器会自动完成所需组件的安装与配置。启动后，选择你习惯的使用方式即可。
+千梦安装器基于 DeepSeek Harness，本安装器会自动完成所需组件的安装与配置。启动后，选择你习惯的使用方式即可。
 
-> 千梦是高度定制化产品。若不了解千梦时，请使用 [dsh-installer 安装官方版本](https://github.com/ningbonb/dsh-installer)。
+> 该仓库是高度定制化产品。若不了解千梦时，请使用 [dsh-installer 安装官方版本](https://github.com/ningbonb/dsh-installer)。
 
 ## 开始使用
 
