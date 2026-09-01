@@ -1,47 +1,38 @@
 <p align="center">
-  <img src="assets/qianmeng-logo.png" alt="千梦" width="300">
+  <img src="assets/qianmeng-logo.png" alt="千梦" width="260">
 </p>
+<h1 align="center">千梦</h1>
 
-# 千梦
 
-千梦是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（DSH）定制的智能助手产品。本安装器会完成千梦所需组件的安装与配置，让你可以按习惯使用浏览器 Web 或千梦客户端。
+千梦基于 DeepSeek Harness 定制的 Agent，本安装器会自动完成所需组件的安装与配置。启动后，选择你习惯的使用方式即可。
 
-> 千梦是高度定制化产品。需要通用 DSH、安装其他产品，或不了解千梦部署约定时，请使用 [dsh-installer](https://github.com/ningbonb/dsh-installer)。
+> 千梦是高度定制化产品。若不了解千梦时，请使用 [dsh-installer 安装官方版本](https://github.com/ningbonb/dsh-installer)。
 
-## 使用方式
-
-### 浏览器 Web
-
-选择「浏览器 Web」后，千梦会在默认浏览器中打开。适合临时使用，以及希望直接在浏览器中工作的场景。
-
-### 千梦客户端
-
-选择「千梦客户端」后，千梦会以独立窗口运行。客户端与 Web 共用同一份会话、插件和设置。
-
-首次启动客户端时，Electron 可能需要下载运行时，请耐心等待；后续启动不会重复下载。
-
-## 安装与启动
+## 开始使用
 
 | 文件 | 平台 |
 | --- | --- |
 | `qianmeng.command` | macOS（Linux 下也可通过 `bash` 运行） |
 | `qianmeng.bat` | Windows |
 
-### macOS
+1. 双击 `qianmeng.command`，macOS 若系统阻止打开，请右键选择「打开」。Windows 双击 `qianmeng.bat`。
+2. 首次运行会自动安装所需组件。Windows 安装 Node.js 后如提示刷新环境，请关闭窗口再运行一次。
+3. 在菜单中选择使用方式。
 
-1. 双击 `qianmeng.command`。
-2. 如果系统阻止打开，请右键点击文件并选择「打开」。
-3. 首次运行会自动安装所需组件；完成后选择「浏览器 Web」或「千梦客户端」。
+| 选择 | 适合场景 |
+| --- | --- |
+| 浏览器 Web | 希望直接在默认浏览器中使用 |
+| 千梦客户端 | 希望使用独立桌面窗口 |
 
-### Windows
+客户端与 Web 共用会话、插件和设置。首次启动客户端可能需要下载 Electron，请耐心等待；后续不会重复下载。
 
-1. 双击 `qianmeng.bat`。
-2. 首次运行会自动安装所需组件；如果系统提示 Node.js 安装完成后需要刷新环境，请关闭窗口再运行一次脚本。
-3. 选择「浏览器 Web」或「千梦客户端」。
+## 更新
 
-## 保持最新
+安装器会在后台检查自身和 DeepSeek Harness 的更新；发现新版本后，会在下一次启动询问是否更新。
 
-安装器会在后台检查自身和 DeepSeek Harness 的更新。发现新版本时，会在下次启动询问是否更新；只有确认后才会开始下载或安装。
+## 开发者
+
+安装器维护、测试和发布说明见 [DEVELOPMENT.md](DEVELOPMENT.md)。
 
 ## 许可证
 
