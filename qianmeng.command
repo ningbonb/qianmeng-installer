@@ -4,8 +4,65 @@
 QIANMENG_INSTALLER_VERSION="0.1.0"
 STATE_DIR="$HOME/.qianmeng-installer"
 LOG_FILE="$STATE_DIR/qianmeng.log"
+REPO='ningbonb/qianmeng-installer'
 BRAND_MARKER='# qianmeng-installer managed brand configuration'
 LOGO_URL='https://sales.ws.126.net/minisite/2026/0901/1788255726_logo.png'
+
+version_is_newer() {
+  awk -v candidate="${1#v}" -v current="${2#v}" 'BEGIN {
+    candidate_parts = split(candidate, candidate_values, ".")
+    current_parts = split(current, current_values, ".")
+    count = candidate_parts > current_parts ? candidate_parts : current_parts
+    for (part = 1; part <= count; part++) {
+      candidate_value = part <= candidate_parts ? candidate_values[part] + 0 : 0
+      current_value = part <= current_parts ? current_values[part] + 0 : 0
+      if (candidate_value > current_value) exit 0
+      if (candidate_value < current_value) exit 1
+    }
+    exit 1
+  }'
+}
+
+apply_pending_update() {
+  [ -f "$HERE/qianmeng.command.new" ] || return 0
+  if [ -s "$HERE/qianmeng.command.new" ] && head -1 "$HERE/qianmeng.command.new" | grep -q '^#!'; then
+    chmod +x "$HERE/qianmeng.command.new"
+    mv -f "$HERE/qianmeng.command.new" "$HERE/qianmeng.command"
+    exec "$HERE/qianmeng.command"
+  fi
+  rm -f "$HERE/qianmeng.command.new"
+}
+
+prompt_update() {
+  local latest seen answer
+  latest="$(cat "$STATE_DIR/latest_tag" 2>/dev/null)"
+  seen="$(cat "$STATE_DIR/seen_tag" 2>/dev/null)"
+  [ -n "$latest" ] && [ "$latest" != "$seen" ] || return 0
+  version_is_newer "$latest" "$QIANMENG_INSTALLER_VERSION" || return 0
+  echo "发现新版本：$latest（当前：v$QIANMENG_INSTALLER_VERSION）"
+  printf '现在下载更新，并在下次启动时生效？[y/N] '
+  read -r -t 5 answer
+  if [ "$answer" = y ] || [ "$answer" = Y ]; then
+    if curl -fsSL -m 30 -o "$HERE/qianmeng.command.new" "https://raw.githubusercontent.com/$REPO/$latest/qianmeng.command"; then
+      echo '更新已下载，下次启动时生效。'
+      return 0
+    fi
+    rm -f "$HERE/qianmeng.command.new"
+    echo '更新下载失败，继续使用当前版本。'
+    return 0
+  fi
+  mkdir -p "$STATE_DIR"
+  printf '%s\n' "$latest" > "$STATE_DIR/seen_tag"
+}
+
+check_update_in_background() {
+  mkdir -p "$STATE_DIR"
+  (
+    local latest
+    latest="$(curl -fsSL -m 5 "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -1)"
+    [ -n "$latest" ] && printf '%s\n' "$latest" > "$STATE_DIR/latest_tag"
+  ) >/dev/null 2>&1 &
+}
 
 fix_path() {
   export PATH="$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
@@ -182,6 +239,10 @@ choose_mode() {
 }
 
 main() {
+  HERE="$(cd "$(dirname "$0")" && pwd)"
+  apply_pending_update
+  prompt_update
+  check_update_in_background
   fix_path
   if ! dsh_ok; then
     echo '未找到 dsh（或不可用），开始安装千梦所需组件。'

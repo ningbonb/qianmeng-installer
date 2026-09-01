@@ -6,6 +6,13 @@ set "QIANMENG_INSTALLER_VERSION=0.1.0"
 set "STATE_DIR=%USERPROFILE%\.qianmeng-installer"
 set "LOG_FILE=%STATE_DIR%\qianmeng.log"
 set "LOGO_URL=https://sales.ws.126.net/minisite/2026/0901/1788255726_logo.png"
+set "REPO=ningbonb/qianmeng-installer"
+
+set "PENDING_UPDATE_APPLIED="
+if exist "%~dp0qianmeng.bat.new" call :apply_pending_update
+if defined PENDING_UPDATE_APPLIED exit /b 0
+call :prompt_update
+start "" /b powershell -NoProfile -WindowStyle Hidden -Command "$ErrorActionPreference='SilentlyContinue'; $tag=(Invoke-RestMethod -Uri 'https://api.github.com/repos/%REPO%/releases/latest' -Headers @{ 'User-Agent'='qianmeng-installer' } -TimeoutSec 5).tag_name; if($tag){ New-Item -ItemType Directory -Force -Path '%STATE_DIR%' ^| Out-Null; Set-Content -NoNewline -Encoding ascii -Path '%STATE_DIR%\latest_tag' -Value $tag }"
 
 if exist "%APPDATA%\npm" set "PATH=%APPDATA%\npm;%PATH%"
 call :find_dsh
@@ -52,6 +59,42 @@ if errorlevel 1 goto fail
 call :ensure_product_setup
 if errorlevel 1 goto fail
 goto choose_mode
+
+:apply_pending_update
+findstr /c:"@echo off" "%~dp0qianmeng.bat.new" >nul 2>&1
+if errorlevel 1 del /q "%~dp0qianmeng.bat.new" >nul 2>&1
+if errorlevel 1 exit /b 0
+findstr /c:"QIANMENG_INSTALLER_VERSION" "%~dp0qianmeng.bat.new" >nul 2>&1
+if errorlevel 1 del /q "%~dp0qianmeng.bat.new" >nul 2>&1
+if errorlevel 1 exit /b 0
+move /y "%~dp0qianmeng.bat.new" "%~dp0qianmeng.bat" >nul 2>&1
+if errorlevel 1 exit /b 0
+call "%~dp0qianmeng.bat"
+set "PENDING_UPDATE_APPLIED=1"
+exit /b 0
+
+:prompt_update
+if not exist "%STATE_DIR%\latest_tag" exit /b 0
+set /p "LATEST_TAG=" < "%STATE_DIR%\latest_tag"
+if not defined LATEST_TAG exit /b 0
+set "SEEN_TAG="
+if exist "%STATE_DIR%\seen_tag" set /p "SEEN_TAG=" < "%STATE_DIR%\seen_tag"
+if "%LATEST_TAG%"=="%SEEN_TAG%" exit /b 0
+powershell -NoProfile -Command "try { if(([version]('%LATEST_TAG%'.TrimStart('v'))) -gt ([version]('%QIANMENG_INSTALLER_VERSION%'))) { exit 0 }; exit 1 } catch { exit 1 }"
+if errorlevel 1 exit /b 0
+echo 发现新版本：%LATEST_TAG%（当前：v%QIANMENG_INSTALLER_VERSION%）
+choice /c YN /n /t 5 /d N /m "现在下载更新，并在下次启动时生效？ [Y/N]"
+if errorlevel 2 goto mark_update_seen
+curl.exe -fsSL -m 30 -o "%~dp0qianmeng.bat.new" "https://raw.githubusercontent.com/%REPO%/%LATEST_TAG%/qianmeng.bat"
+if errorlevel 1 echo 更新下载失败，继续使用当前版本。
+if errorlevel 1 del /q "%~dp0qianmeng.bat.new" >nul 2>&1
+if not errorlevel 1 echo 更新已下载，下次启动时生效。
+exit /b 0
+
+:mark_update_seen
+if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
+> "%STATE_DIR%\seen_tag" echo %LATEST_TAG%
+exit /b 0
 
 :ensure_product_setup
 call :ensure_plugin dsh-client-ui-brand
