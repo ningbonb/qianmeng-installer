@@ -1,7 +1,7 @@
 #!/bin/bash
 # 千梦一键入口 — macOS（Linux 下也可通过 bash 运行）。
 
-QIANMENG_INSTALLER_VERSION="0.1.4"
+QIANMENG_INSTALLER_VERSION="0.1.5"
 STATE_DIR="$HOME/.qianmeng-installer"
 LOG_FILE="$STATE_DIR/qianmeng.log"
 REPO='ningbonb/qianmeng-installer'
@@ -10,12 +10,39 @@ LOGO_URL='https://sales.ws.126.net/minisite/2026/0901/1788255726_logo.png'
 BRAND_PLUGIN_NAME='dsh-client-ui-brand'
 BRAND_PLUGIN_SPEC='dsh-client-ui-brand@0.1.10'
 DESKTOP_PLUGIN_NAME='dsh-web-desktop'
-DESKTOP_PLUGIN_SPEC='dsh-web-desktop@0.1.0'
+DESKTOP_PLUGIN_SPEC='dsh-web-desktop@0.1.2'
 
 version_is_newer() {
-  awk -v candidate="${1#v}" -v current="${2#v}" 'BEGIN {
-    candidate_parts = split(candidate, candidate_values, ".")
-    current_parts = split(current, current_values, ".")
+  awk -v candidate="${1#v}" -v current="${2#v}" 'function compare_pre_release(candidate_pre, current_pre, candidate_values, current_values, candidate_count, current_count, part, candidate_value, current_value, candidate_numeric, current_numeric) {
+    if (candidate_pre == "" && current_pre != "") return 1
+    if (candidate_pre != "" && current_pre == "") return -1
+    candidate_count = split(candidate_pre, candidate_values, ".")
+    current_count = split(current_pre, current_values, ".")
+    for (part = 1; part <= candidate_count || part <= current_count; part++) {
+      if (part > candidate_count) return -1
+      if (part > current_count) return 1
+      candidate_value = candidate_values[part]
+      current_value = current_values[part]
+      candidate_numeric = candidate_value ~ /^[0-9]+$/
+      current_numeric = current_value ~ /^[0-9]+$/
+      if (candidate_numeric && current_numeric) {
+        if (candidate_value + 0 > current_value + 0) return 1
+        if (candidate_value + 0 < current_value + 0) return -1
+      } else if (candidate_numeric != current_numeric) {
+        return candidate_numeric ? -1 : 1
+      } else {
+        if (candidate_value > current_value) return 1
+        if (candidate_value < current_value) return -1
+      }
+    }
+    return 0
+  } BEGIN {
+    candidate_segment_count = split(candidate, candidate_segments, "-")
+    current_segment_count = split(current, current_segments, "-")
+    candidate_pre = candidate_segment_count > 1 ? substr(candidate, length(candidate_segments[1]) + 2) : ""
+    current_pre = current_segment_count > 1 ? substr(current, length(current_segments[1]) + 2) : ""
+    candidate_parts = split(candidate_segments[1], candidate_values, ".")
+    current_parts = split(current_segments[1], current_values, ".")
     count = candidate_parts > current_parts ? candidate_parts : current_parts
     for (part = 1; part <= count; part++) {
       candidate_value = part <= candidate_parts ? candidate_values[part] + 0 : 0
@@ -23,8 +50,12 @@ version_is_newer() {
       if (candidate_value > current_value) exit 0
       if (candidate_value < current_value) exit 1
     }
-    exit 1
+    exit compare_pre_release(candidate_pre, current_pre) > 0 ? 0 : 1
   }'
+}
+
+normalize_version() {
+  printf '%s\n' "$1" | grep -Eo 'v?[0-9]+(\.[0-9]+){1,2}(-[0-9A-Za-z.-]+)?' | head -1 | sed 's/^v//'
 }
 
 apply_pending_update() {
@@ -37,26 +68,24 @@ apply_pending_update() {
   rm -f "$HERE/qianmeng.command.new"
 }
 
-prompt_update() {
-  local latest seen answer
-  latest="$(cat "$STATE_DIR/latest_tag" 2>/dev/null)"
-  seen="$(cat "$STATE_DIR/seen_tag" 2>/dev/null)"
-  [ -n "$latest" ] && [ "$latest" != "$seen" ] || return 0
-  version_is_newer "$latest" "$QIANMENG_INSTALLER_VERSION" || return 0
-  echo "发现新版本：$latest（当前：v$QIANMENG_INSTALLER_VERSION）"
-  printf '现在下载更新，并在下次启动时生效？[y/N] '
-  read -r -t 5 answer
-  if [ "$answer" = y ] || [ "$answer" = Y ]; then
-    if curl -fsSL -m 30 -o "$HERE/qianmeng.command.new" "https://raw.githubusercontent.com/$REPO/$latest/qianmeng.command"; then
-      echo '更新已下载，下次启动时生效。'
-      return 0
-    fi
-    rm -f "$HERE/qianmeng.command.new"
-    echo '更新下载失败，继续使用当前版本。'
-    return 0
+installer_update_available() {
+  local latest latest_tag
+  latest_tag="$(cat "$STATE_DIR/latest_tag" 2>/dev/null)"
+  latest="$(normalize_version "$latest_tag")"
+  [ -n "$latest" ] && version_is_newer "$latest" "$QIANMENG_INSTALLER_VERSION" || return 1
+  AVAILABLE_INSTALLER_TAG="$latest_tag"
+  AVAILABLE_INSTALLER_VERSION="$latest"
+}
+
+download_installer_update() {
+  installer_update_available || return 1
+  if curl -fsSL -m 30 -o "$HERE/qianmeng.command.new" "https://raw.githubusercontent.com/$REPO/$AVAILABLE_INSTALLER_TAG/qianmeng.command"; then
+    echo '千梦更新已下载，正在重新启动。'
+    apply_pending_update
   fi
-  mkdir -p "$STATE_DIR"
-  printf '%s\n' "$latest" > "$STATE_DIR/seen_tag"
+  rm -f "$HERE/qianmeng.command.new"
+  echo '千梦更新下载失败，请稍后重试。'
+  return 1
 }
 
 check_update_in_background() {
@@ -68,26 +97,23 @@ check_update_in_background() {
   ) >/dev/null 2>&1 &
 }
 
-prompt_dsh_update() {
-  local current latest seen answer
-  current="$(dsh --version 2>/dev/null | tr -d 'v')"
-  latest="$(cat "$STATE_DIR/dsh_latest_version" 2>/dev/null)"
-  seen="$(cat "$STATE_DIR/dsh_seen_version" 2>/dev/null)"
-  [ -n "$current" ] && [ -n "$latest" ] && [ "$latest" != "$seen" ] || return 0
-  version_is_newer "$latest" "$current" || return 0
-  echo "DeepSeek Harness 有新版本：v$latest（当前：v$current）"
-  printf '现在更新 DeepSeek Harness？[y/N] '
-  read -r -t 5 answer
-  if [ "$answer" = y ] || [ "$answer" = Y ]; then
-    configure_npm_prefix || return 1
-    echo '正在更新 DeepSeek Harness…'
-    $NPM install -g @deepseek-ai/dsh@latest || return 1
-    fix_path
-    dsh_ok || return 1
-    return 0
-  fi
-  mkdir -p "$STATE_DIR"
-  printf '%s\n' "$latest" > "$STATE_DIR/dsh_seen_version"
+dsh_update_available() {
+  local current latest latest_value
+  current="$(normalize_version "$(dsh --version 2>/dev/null)")"
+  latest_value="$(cat "$STATE_DIR/dsh_latest_version" 2>/dev/null)"
+  latest="$(normalize_version "$latest_value")"
+  [ -n "$current" ] && [ -n "$latest" ] && version_is_newer "$latest" "$current" || return 1
+  AVAILABLE_DSH_CURRENT="$current"
+  AVAILABLE_DSH_VERSION="$latest"
+}
+
+update_dsh() {
+  dsh_update_available || return 1
+  configure_npm_prefix || return 1
+  echo "正在更新 DeepSeek Harness：v${AVAILABLE_DSH_CURRENT} → v${AVAILABLE_DSH_VERSION}…"
+  $NPM install -g @deepseek-ai/dsh@latest || return 1
+  fix_path
+  dsh_ok
 }
 
 check_dsh_update_in_background() {
@@ -202,19 +228,19 @@ EOF
 }
 
 ensure_product_setup() {
-  local components_file installed_components
+  local components_file components_version installed_components
   components_file="$STATE_DIR/components_version"
+  components_version="$BRAND_PLUGIN_SPEC|$DESKTOP_PLUGIN_SPEC"
   installed_components="$(cat "$components_file" 2>/dev/null)"
   RECONCILE_COMPONENTS=0
-  [ "$installed_components" = "$QIANMENG_INSTALLER_VERSION" ] || RECONCILE_COMPONENTS=1
+  [ "$installed_components" = "$components_version" ] || RECONCILE_COMPONENTS=1
   ensure_plugin "$BRAND_PLUGIN_NAME" "$BRAND_PLUGIN_SPEC" || return 1
   ensure_plugin "$DESKTOP_PLUGIN_NAME" "$DESKTOP_PLUGIN_SPEC" || return 1
   configure_brand || return 1
   if [ "$RECONCILE_COMPONENTS" = '1' ]; then
     mkdir -p "$STATE_DIR"
-    printf '%s\n' "$QIANMENG_INSTALLER_VERSION" > "$components_file"
+    printf '%s\n' "$components_version" > "$components_file"
   fi
-  echo '千梦组件已就绪。'
 }
 
 port_pids() {
@@ -273,23 +299,46 @@ launch_desktop() {
 }
 
 choose_mode() {
-  local choice
+  local choice installer_option dsh_option next_option
+  next_option=3
+  installer_option=''
+  dsh_option=''
+  if dsh_update_available; then
+    dsh_option=$next_option
+    next_option=$((next_option + 1))
+  fi
+  if installer_update_available; then
+    installer_option=$next_option
+  fi
   echo ''
-  echo '请选择使用方式：'
-  echo '  [1] 浏览器 Web（默认）'
-  echo '  [2] 千梦客户端'
-  printf '输入编号 [1]: '
+  echo '千梦已准备好，请选择操作：'
+  echo '  [1] 通过浏览器打开'
+  echo '  [2] 通过客户端打开'
+  [ -n "$dsh_option" ] && echo "  [$dsh_option] 更新 DeepSeek Harness（v${AVAILABLE_DSH_CURRENT} → v${AVAILABLE_DSH_VERSION}）"
+  [ -n "$installer_option" ] && echo "  [$installer_option] 更新千梦（v${QIANMENG_INSTALLER_VERSION} → v${AVAILABLE_INSTALLER_VERSION}）"
+  printf '输入编号：'
   read -r choice
   case "${choice:-1}" in
     2) launch_desktop ;;
-    *) launch_web ;;
+    1) launch_web ;;
+    *)
+      if [ "$choice" = "$dsh_option" ]; then
+        update_dsh || { echo 'DeepSeek Harness 更新失败，请稍后重试。'; }
+        choose_mode
+      elif [ "$choice" = "$installer_option" ]; then
+        download_installer_update || true
+        choose_mode
+      else
+        echo '输入无效，请重新选择。'
+        choose_mode
+      fi
+      ;;
   esac
 }
 
 main() {
   HERE="$(cd "$(dirname "$0")" && pwd)"
   apply_pending_update
-  prompt_update
   check_update_in_background
   fix_path
   if ! dsh_ok; then
@@ -307,7 +356,6 @@ main() {
     fix_path
     dsh_ok || { echo 'dsh 安装后仍不可用。'; pause_then_exit; }
   else
-    prompt_dsh_update || { echo 'DeepSeek Harness 更新失败。'; pause_then_exit; }
     check_dsh_update_in_background
   fi
   ensure_product_setup || { echo '千梦组件安装或配置失败。'; pause_then_exit; }

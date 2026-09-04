@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 chcp 936 >nul
 
-set "QIANMENG_INSTALLER_VERSION=0.1.4"
+set "QIANMENG_INSTALLER_VERSION=0.1.5"
 set "STATE_DIR=%USERPROFILE%\.qianmeng-installer"
 set "LOG_FILE=%STATE_DIR%\qianmeng.log"
 set "LOGO_URL=https://sales.ws.126.net/minisite/2026/0901/1788255726_logo.png"
@@ -10,19 +10,16 @@ set "REPO=ningbonb/qianmeng-installer"
 set "BRAND_PLUGIN_NAME=dsh-client-ui-brand"
 set "BRAND_PLUGIN_SPEC=dsh-client-ui-brand@0.1.10"
 set "DESKTOP_PLUGIN_NAME=dsh-web-desktop"
-set "DESKTOP_PLUGIN_SPEC=dsh-web-desktop@0.1.0"
+set "DESKTOP_PLUGIN_SPEC=dsh-web-desktop@0.1.2"
 
 set "PENDING_UPDATE_APPLIED="
 if exist "%~dp0qianmeng.bat.new" call :apply_pending_update
 if defined PENDING_UPDATE_APPLIED exit /b 0
-call :prompt_update
 start "" /b cmd /c powershell -NoProfile -WindowStyle Hidden -Command "$ErrorActionPreference='SilentlyContinue'; $tag=(Invoke-RestMethod -Uri 'https://api.github.com/repos/%REPO%/releases/latest' -Headers @{ 'User-Agent'='qianmeng-installer' } -TimeoutSec 5).tag_name; if($tag){ New-Item -ItemType Directory -Force -Path '%STATE_DIR%' ^| Out-Null; Set-Content -NoNewline -Encoding ascii -Path '%STATE_DIR%\latest_tag' -Value $tag }"
 
 if exist "%APPDATA%\npm" set "PATH=%APPDATA%\npm;%PATH%"
 call :find_dsh
 if errorlevel 1 goto install
-call :prompt_dsh_update
-if errorlevel 1 goto fail
 start "" /b cmd /c powershell -NoProfile -WindowStyle Hidden -Command "$ErrorActionPreference='SilentlyContinue'; $version=(npm view @deepseek-ai/dsh version --silent).Trim(); if($version){ New-Item -ItemType Directory -Force -Path '%STATE_DIR%' ^| Out-Null; Set-Content -NoNewline -Encoding ascii -Path '%STATE_DIR%\dsh_latest_version' -Value $version }"
 goto setup
 
@@ -80,61 +77,91 @@ call "%~dp0qianmeng.bat"
 set "PENDING_UPDATE_APPLIED=1"
 exit /b 0
 
-:prompt_update
+:check_installer_update
+set "INSTALLER_UPDATE_TAG="
+set "INSTALLER_UPDATE_VERSION="
 if not exist "%STATE_DIR%\latest_tag" exit /b 0
 set /p "LATEST_TAG=" < "%STATE_DIR%\latest_tag"
 if not defined LATEST_TAG exit /b 0
-set "SEEN_TAG="
-if exist "%STATE_DIR%\seen_tag" set /p "SEEN_TAG=" < "%STATE_DIR%\seen_tag"
-if "%LATEST_TAG%"=="%SEEN_TAG%" exit /b 0
-powershell -NoProfile -Command "try { if(([version]('%LATEST_TAG%'.TrimStart('v'))) -gt ([version]('%QIANMENG_INSTALLER_VERSION%'))) { exit 0 }; exit 1 } catch { exit 1 }"
+set "LATEST_VERSION=%LATEST_TAG%"
+call :normalize_version "%LATEST_VERSION%"
+set "LATEST_VERSION=%NORMALIZED_VERSION%"
+if not defined LATEST_VERSION exit /b 0
+call :version_is_newer "%LATEST_VERSION%" "%QIANMENG_INSTALLER_VERSION%"
 if errorlevel 1 exit /b 0
-echo 发现新版本：%LATEST_TAG%（当前：v%QIANMENG_INSTALLER_VERSION%）
-choice /c YN /n /t 5 /d N /m "现在下载更新，并在下次启动时生效？ [Y/N]"
-if errorlevel 2 goto mark_update_seen
+set "INSTALLER_UPDATE_TAG=%LATEST_TAG%"
+set "INSTALLER_UPDATE_VERSION=%LATEST_VERSION%"
+exit /b 0
+
+:download_installer_update
+call :check_installer_update
+if not defined INSTALLER_UPDATE_TAG exit /b 0
 curl.exe -fsSL -m 30 -o "%~dp0qianmeng.bat.new" "https://raw.githubusercontent.com/%REPO%/%LATEST_TAG%/qianmeng.bat"
-if errorlevel 1 echo 更新下载失败，继续使用当前版本。
-if errorlevel 1 del /q "%~dp0qianmeng.bat.new" >nul 2>&1
-if not errorlevel 1 echo 更新已下载，下次启动时生效。
-exit /b 0
+if errorlevel 1 (
+  echo 千梦更新下载失败，请稍后重试。
+  del /q "%~dp0qianmeng.bat.new" >nul 2>&1
+  exit /b 1
+)
+set "UPDATE_HELPER=%STATE_DIR%\apply-qianmeng-update.cmd"
+> "%UPDATE_HELPER%" echo @echo off
+>> "%UPDATE_HELPER%" echo ping 127.0.0.1 -n 2 ^>nul
+>> "%UPDATE_HELPER%" echo move /y "%~dp0qianmeng.bat.new" "%~dp0qianmeng.bat" ^>nul
+>> "%UPDATE_HELPER%" echo call "%~dp0qianmeng.bat"
+echo 千梦更新已下载，正在重新启动。
+start "" /b cmd /c call "%UPDATE_HELPER%"
+exit /b 2
 
-:mark_update_seen
-if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
-> "%STATE_DIR%\seen_tag" echo %LATEST_TAG%
-exit /b 0
-
-:prompt_dsh_update
+:check_dsh_update
+set "DSH_UPDATE_AVAILABLE="
 if not exist "%STATE_DIR%\dsh_latest_version" exit /b 0
 set /p "DSH_LATEST_VERSION=" < "%STATE_DIR%\dsh_latest_version"
 if not defined DSH_LATEST_VERSION exit /b 0
-set "DSH_SEEN_VERSION="
-if exist "%STATE_DIR%\dsh_seen_version" set /p "DSH_SEEN_VERSION=" < "%STATE_DIR%\dsh_seen_version"
-if "%DSH_LATEST_VERSION%"=="%DSH_SEEN_VERSION%" exit /b 0
+call :normalize_version "%DSH_LATEST_VERSION%"
+set "DSH_LATEST_VERSION=%NORMALIZED_VERSION%"
+if not defined DSH_LATEST_VERSION exit /b 0
 set "DSH_CURRENT_VERSION="
 for /f "delims=" %%v in ('call "%DSH_CMD%" --version') do if not defined DSH_CURRENT_VERSION set "DSH_CURRENT_VERSION=%%v"
 if not defined DSH_CURRENT_VERSION exit /b 0
-powershell -NoProfile -Command "try { if(([version]('%DSH_LATEST_VERSION%'.TrimStart('v'))) -gt ([version]('%DSH_CURRENT_VERSION%'.TrimStart('v')))) { exit 0 }; exit 1 } catch { exit 1 }"
+call :normalize_version "%DSH_CURRENT_VERSION%"
+set "DSH_CURRENT_VERSION=%NORMALIZED_VERSION%"
+if not defined DSH_CURRENT_VERSION exit /b 0
+call :version_is_newer "%DSH_LATEST_VERSION%" "%DSH_CURRENT_VERSION%"
 if errorlevel 1 exit /b 0
-echo DeepSeek Harness 有新版本：v%DSH_LATEST_VERSION%（当前：v%DSH_CURRENT_VERSION%）
-choice /c YN /n /t 5 /d N /m "现在更新 DeepSeek Harness？ [Y/N]"
-if errorlevel 2 goto mark_dsh_update_seen
-echo 正在更新 DeepSeek Harness…
+set "DSH_UPDATE_AVAILABLE=1"
+exit /b 0
+
+:update_dsh
+call :check_dsh_update
+if not defined DSH_UPDATE_AVAILABLE exit /b 0
+echo 正在更新 DeepSeek Harness：v%DSH_CURRENT_VERSION% 至 v%DSH_LATEST_VERSION%…
 call npm install -g @deepseek-ai/dsh@latest
 if errorlevel 1 exit /b 1
 if exist "%APPDATA%\npm" set "PATH=%APPDATA%\npm;%PATH%"
 call :find_dsh
 exit /b %ERRORLEVEL%
 
-:mark_dsh_update_seen
-if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
-> "%STATE_DIR%\dsh_seen_version" echo %DSH_LATEST_VERSION%
+:normalize_version
+set "NORMALIZED_VERSION="
+for /f "tokens=1,2 delims= v" %%a in ("%~1") do (
+  set "NORMALIZED_VERSION=%%b"
+  if not defined NORMALIZED_VERSION set "NORMALIZED_VERSION=%%a"
+)
 exit /b 0
+
+:version_is_newer
+setlocal
+for /f "tokens=1 delims=-" %%a in ("%~1") do set "CANDIDATE_CORE=%%a"
+for /f "tokens=1 delims=-" %%a in ("%~2") do set "CURRENT_CORE=%%a"
+powershell -NoProfile -Command "try { if(([version]'%CANDIDATE_CORE%') -gt ([version]'%CURRENT_CORE%')) { exit 0 }; exit 1 } catch { exit 1 }"
+set "RESULT=%ERRORLEVEL%"
+endlocal & exit /b %RESULT%
 
 :ensure_product_setup
 set "RECONCILE_COMPONENTS=0"
+set "COMPONENTS_RELEASE=%BRAND_PLUGIN_SPEC%|%DESKTOP_PLUGIN_SPEC%"
 set "COMPONENTS_VERSION="
 if exist "%STATE_DIR%\components_version" set /p "COMPONENTS_VERSION=" < "%STATE_DIR%\components_version"
-if not "%COMPONENTS_VERSION%"=="%QIANMENG_INSTALLER_VERSION%" set "RECONCILE_COMPONENTS=1"
+if not "%COMPONENTS_VERSION%"=="%COMPONENTS_RELEASE%" set "RECONCILE_COMPONENTS=1"
 call :ensure_plugin "%BRAND_PLUGIN_NAME%" "%BRAND_PLUGIN_SPEC%"
 if errorlevel 1 exit /b 1
 call :ensure_plugin "%DESKTOP_PLUGIN_NAME%" "%DESKTOP_PLUGIN_SPEC%"
@@ -143,7 +170,7 @@ call :configure_brand
 if errorlevel 1 exit /b 1
 if not "%RECONCILE_COMPONENTS%"=="1" exit /b 0
 if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
-> "%STATE_DIR%\components_version" echo %QIANMENG_INSTALLER_VERSION%
+> "%STATE_DIR%\components_version" echo %COMPONENTS_RELEASE%
 exit /b 0
 
 :ensure_plugin
@@ -183,14 +210,39 @@ if not errorlevel 1 exit /b 0
 exit /b 0
 
 :choose_mode
-echo 千梦组件已就绪。
+call :check_dsh_update
+call :check_installer_update
+set "DSH_UPDATE_OPTION="
+set "INSTALLER_UPDATE_OPTION="
+set "NEXT_UPDATE_OPTION=3"
+if defined DSH_UPDATE_AVAILABLE set "DSH_UPDATE_OPTION=%NEXT_UPDATE_OPTION%"
+if defined DSH_UPDATE_AVAILABLE set "NEXT_UPDATE_OPTION=4"
+if defined INSTALLER_UPDATE_TAG set "INSTALLER_UPDATE_OPTION=%NEXT_UPDATE_OPTION%"
 echo.
-echo 请选择使用方式：
-echo   [1] 浏览器 Web（默认）
-echo   [2] 千梦客户端
-choice /c 12 /n /t 10 /d 1 /m "输入编号 [1]"
-if errorlevel 2 goto launch_desktop
-goto launch_web
+echo 千梦已准备好，请选择操作：
+echo   [1] 通过浏览器打开
+echo   [2] 通过客户端打开
+if defined DSH_UPDATE_AVAILABLE echo   [%DSH_UPDATE_OPTION%] 更新 DeepSeek Harness（v%DSH_CURRENT_VERSION% 至 v%DSH_LATEST_VERSION%）
+if defined INSTALLER_UPDATE_TAG echo   [%INSTALLER_UPDATE_OPTION%] 更新千梦（v%QIANMENG_INSTALLER_VERSION% 至 v%INSTALLER_UPDATE_VERSION%）
+set "MODE_CHOICE="
+set /p "MODE_CHOICE=输入编号："
+if not defined MODE_CHOICE goto launch_web
+if "%MODE_CHOICE%"=="1" goto launch_web
+if "%MODE_CHOICE%"=="2" goto launch_desktop
+if "%MODE_CHOICE%"=="%DSH_UPDATE_OPTION%" if defined DSH_UPDATE_AVAILABLE goto update_dsh_from_menu
+if "%MODE_CHOICE%"=="%INSTALLER_UPDATE_OPTION%" if defined INSTALLER_UPDATE_TAG goto download_installer_update_from_menu
+echo 输入无效，请重新选择。
+goto choose_mode
+
+:update_dsh_from_menu
+call :update_dsh
+if errorlevel 1 goto fail
+goto choose_mode
+
+:download_installer_update_from_menu
+call :download_installer_update
+if errorlevel 2 exit /b 0
+goto choose_mode
 
 :launch_desktop
 if exist "%STATE_DIR%\desktop_first_use" goto launch_desktop_now

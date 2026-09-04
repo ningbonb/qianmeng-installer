@@ -64,7 +64,9 @@
 | 安装器脚本 | GitHub `releases/latest` | `latest_tag`、`seen_tag` | 下载同一 tag 下的新脚本，并在下次启动替换 |
 | DeepSeek Harness | npm `@deepseek-ai/dsh` | `dsh_latest_version`、`dsh_seen_version` | 用户确认后执行全局 `npm install -g @deepseek-ai/dsh@latest` |
 
-检测不应阻塞当前启动。用户拒绝某个版本后，仅在出现更高版本时再次提示。
+插件不单独检查 npm 最新版。每个安装器 Release 都固定一组经过验证的插件规格；安装器更新并在下一次启动完成组件校准后，会新增缺失插件或将已有插件调整到脚本中指定的版本。
+
+检测不应阻塞当前启动。只要本机仍落后于已检测到的版本，更新入口就持续显示在启动菜单中；不再记录“已忽略”的版本。
 
 ## 本地验证
 
@@ -79,9 +81,9 @@ bash -n qianmeng.command
 1. 已安装插件时生成品牌 patch。
 2. patch 为 `[]` 或曾被错误写成 `[]` 加条目时，脚本会修复为合法数组。
 3. 选择 Web 和客户端时调用的命令正确。
-4. 检测到安装器或 DSH 新版本时，拒绝操作会记录已见版本。
+4. 检测到安装器或 DSH 新版本时，版本号会正确解析 `-rc.1` 等预发布版本，并在菜单中持续显示更新入口。
 
-Windows 改动至少审查批处理控制流、UTF-8 编码和 `cmd.exe` 的变量展开；在 Windows 主机上手工验证安装、Web 和客户端两种入口。
+Windows 改动至少审查批处理控制流、GBK 编码与 CRLF 换行，以及 `cmd.exe` 的变量展开；在 Windows 主机上手工验证安装、Web 和客户端两种入口。
 
 ## 发布
 
