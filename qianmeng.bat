@@ -1,8 +1,8 @@
 @echo off
 setlocal EnableExtensions
-chcp 65001 >nul
+chcp 936 >nul
 
-set "QIANMENG_INSTALLER_VERSION=0.1.3"
+set "QIANMENG_INSTALLER_VERSION=0.1.4"
 set "STATE_DIR=%USERPROFILE%\.qianmeng-installer"
 set "LOG_FILE=%STATE_DIR%\qianmeng.log"
 set "LOGO_URL=https://sales.ws.126.net/minisite/2026/0901/1788255726_logo.png"
@@ -16,19 +16,19 @@ set "PENDING_UPDATE_APPLIED="
 if exist "%~dp0qianmeng.bat.new" call :apply_pending_update
 if defined PENDING_UPDATE_APPLIED exit /b 0
 call :prompt_update
-start "" /b powershell -NoProfile -WindowStyle Hidden -Command "$ErrorActionPreference='SilentlyContinue'; $tag=(Invoke-RestMethod -Uri 'https://api.github.com/repos/%REPO%/releases/latest' -Headers @{ 'User-Agent'='qianmeng-installer' } -TimeoutSec 5).tag_name; if($tag){ New-Item -ItemType Directory -Force -Path '%STATE_DIR%' ^| Out-Null; Set-Content -NoNewline -Encoding ascii -Path '%STATE_DIR%\latest_tag' -Value $tag }"
+start "" /b cmd /c powershell -NoProfile -WindowStyle Hidden -Command "$ErrorActionPreference='SilentlyContinue'; $tag=(Invoke-RestMethod -Uri 'https://api.github.com/repos/%REPO%/releases/latest' -Headers @{ 'User-Agent'='qianmeng-installer' } -TimeoutSec 5).tag_name; if($tag){ New-Item -ItemType Directory -Force -Path '%STATE_DIR%' ^| Out-Null; Set-Content -NoNewline -Encoding ascii -Path '%STATE_DIR%\latest_tag' -Value $tag }"
 
 if exist "%APPDATA%\npm" set "PATH=%APPDATA%\npm;%PATH%"
 call :find_dsh
 if errorlevel 1 goto install
 call :prompt_dsh_update
 if errorlevel 1 goto fail
-start "" /b powershell -NoProfile -WindowStyle Hidden -Command "$ErrorActionPreference='SilentlyContinue'; $version=(npm view @deepseek-ai/dsh version --silent).Trim(); if($version){ New-Item -ItemType Directory -Force -Path '%STATE_DIR%' ^| Out-Null; Set-Content -NoNewline -Encoding ascii -Path '%STATE_DIR%\dsh_latest_version' -Value $version }"
+start "" /b cmd /c powershell -NoProfile -WindowStyle Hidden -Command "$ErrorActionPreference='SilentlyContinue'; $version=(npm view @deepseek-ai/dsh version --silent).Trim(); if($version){ New-Item -ItemType Directory -Force -Path '%STATE_DIR%' ^| Out-Null; Set-Content -NoNewline -Encoding ascii -Path '%STATE_DIR%\dsh_latest_version' -Value $version }"
 goto setup
 
 :install
 echo ================================================================
-echo    åƒæ¢¦å®‰è£…å™¨
+echo    Ç§ÃÎ°²×°Æ÷
 echo ================================================================
 where node >nul 2>nul
 if errorlevel 1 goto install_node
@@ -38,9 +38,9 @@ call :node_version_ok
 if not errorlevel 1 goto install_pnpm
 
 :install_node
-echo æ­£åœ¨å®‰è£… Node.jsâ€¦
+echo ÕıÔÚ°²×° Node.js¡­
 where winget >nul 2>nul
-if errorlevel 1 echo æœªæ‰¾åˆ° wingetï¼Œè¯·ä» https://nodejs.org å®‰è£… Node.js åé‡æ–°è¿è¡Œã€‚
+if errorlevel 1 echo Î´ÕÒµ½ winget£¬Çë´Ó https://nodejs.org °²×° Node.js ºóÖØĞÂÔËĞĞ¡£
 if errorlevel 1 goto fail
 winget install OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements
 if errorlevel 1 goto fail
@@ -48,14 +48,14 @@ set "PATH=%ProgramFiles%\nodejs;%PATH%"
 for /f "delims=" %%v in ('node -v 2^>nul') do set "NVER=%%v"
 set "NVER=%NVER:v=%"
 call :node_version_ok
-if errorlevel 1 echo Node.js å®‰è£…åè¯·å…³é—­çª—å£å¹¶é‡æ–°è¿è¡Œæœ¬è„šæœ¬ã€‚
+if errorlevel 1 echo Node.js °²×°ºóÇë¹Ø±Õ´°¿Ú²¢ÖØĞÂÔËĞĞ±¾½Å±¾¡£
 if errorlevel 1 goto fail
 
 :install_pnpm
-echo æ­£åœ¨å®‰è£… pnpmâ€¦
+echo ÕıÔÚ°²×° pnpm¡­
 call npm install -g pnpm
 if errorlevel 1 goto fail
-echo æ­£åœ¨å®‰è£… dshâ€¦
+echo ÕıÔÚ°²×° dsh¡­
 call npm install -g @deepseek-ai/dsh
 if errorlevel 1 goto fail
 if exist "%APPDATA%\npm" set "PATH=%APPDATA%\npm;%PATH%"
@@ -89,13 +89,13 @@ if exist "%STATE_DIR%\seen_tag" set /p "SEEN_TAG=" < "%STATE_DIR%\seen_tag"
 if "%LATEST_TAG%"=="%SEEN_TAG%" exit /b 0
 powershell -NoProfile -Command "try { if(([version]('%LATEST_TAG%'.TrimStart('v'))) -gt ([version]('%QIANMENG_INSTALLER_VERSION%'))) { exit 0 }; exit 1 } catch { exit 1 }"
 if errorlevel 1 exit /b 0
-echo å‘ç°æ–°ç‰ˆæœ¬ï¼š%LATEST_TAG%ï¼ˆå½“å‰ï¼šv%QIANMENG_INSTALLER_VERSION%ï¼‰
-choice /c YN /n /t 5 /d N /m "ç°åœ¨ä¸‹è½½æ›´æ–°ï¼Œå¹¶åœ¨ä¸‹æ¬¡å¯åŠ¨æ—¶ç”Ÿæ•ˆï¼Ÿ [Y/N]"
+echo ·¢ÏÖĞÂ°æ±¾£º%LATEST_TAG%£¨µ±Ç°£ºv%QIANMENG_INSTALLER_VERSION%£©
+choice /c YN /n /t 5 /d N /m "ÏÖÔÚÏÂÔØ¸üĞÂ£¬²¢ÔÚÏÂ´ÎÆô¶¯Ê±ÉúĞ§£¿ [Y/N]"
 if errorlevel 2 goto mark_update_seen
 curl.exe -fsSL -m 30 -o "%~dp0qianmeng.bat.new" "https://raw.githubusercontent.com/%REPO%/%LATEST_TAG%/qianmeng.bat"
-if errorlevel 1 echo æ›´æ–°ä¸‹è½½å¤±è´¥ï¼Œç»§ç»­ä½¿ç”¨å½“å‰ç‰ˆæœ¬ã€‚
+if errorlevel 1 echo ¸üĞÂÏÂÔØÊ§°Ü£¬¼ÌĞøÊ¹ÓÃµ±Ç°°æ±¾¡£
 if errorlevel 1 del /q "%~dp0qianmeng.bat.new" >nul 2>&1
-if not errorlevel 1 echo æ›´æ–°å·²ä¸‹è½½ï¼Œä¸‹æ¬¡å¯åŠ¨æ—¶ç”Ÿæ•ˆã€‚
+if not errorlevel 1 echo ¸üĞÂÒÑÏÂÔØ£¬ÏÂ´ÎÆô¶¯Ê±ÉúĞ§¡£
 exit /b 0
 
 :mark_update_seen
@@ -113,12 +113,12 @@ if "%DSH_LATEST_VERSION%"=="%DSH_SEEN_VERSION%" exit /b 0
 set "DSH_CURRENT_VERSION="
 for /f "delims=" %%v in ('call "%DSH_CMD%" --version') do if not defined DSH_CURRENT_VERSION set "DSH_CURRENT_VERSION=%%v"
 if not defined DSH_CURRENT_VERSION exit /b 0
-powershell -NoProfile -Command "try { if(([version]('%DSH_LATEST_VERSION%'.TrimStart('v'))) -gt ([version]('%DSH_CURRENT_VERSION%'.TrimStart('v'))) { exit 0 }; exit 1 } catch { exit 1 }"
+powershell -NoProfile -Command "try { if(([version]('%DSH_LATEST_VERSION%'.TrimStart('v'))) -gt ([version]('%DSH_CURRENT_VERSION%'.TrimStart('v')))) { exit 0 }; exit 1 } catch { exit 1 }"
 if errorlevel 1 exit /b 0
-echo DeepSeek Harness æœ‰æ–°ç‰ˆæœ¬ï¼šv%DSH_LATEST_VERSION%ï¼ˆå½“å‰ï¼šv%DSH_CURRENT_VERSION%ï¼‰
-choice /c YN /n /t 5 /d N /m "ç°åœ¨æ›´æ–° DeepSeek Harnessï¼Ÿ [Y/N]"
+echo DeepSeek Harness ÓĞĞÂ°æ±¾£ºv%DSH_LATEST_VERSION%£¨µ±Ç°£ºv%DSH_CURRENT_VERSION%£©
+choice /c YN /n /t 5 /d N /m "ÏÖÔÚ¸üĞÂ DeepSeek Harness£¿ [Y/N]"
 if errorlevel 2 goto mark_dsh_update_seen
-echo æ­£åœ¨æ›´æ–° DeepSeek Harnessâ€¦
+echo ÕıÔÚ¸üĞÂ DeepSeek Harness¡­
 call npm install -g @deepseek-ai/dsh@latest
 if errorlevel 1 exit /b 1
 if exist "%APPDATA%\npm" set "PATH=%APPDATA%\npm;%PATH%"
@@ -155,7 +155,7 @@ if "%RECONCILE_COMPONENTS%"=="1" goto install_product_plugin
 if exist "%PRODUCT_PROFILE%\package.json" findstr /c:%PRODUCT_PLUGIN% "%PRODUCT_PROFILE%\package.json" >nul 2>&1
 if not errorlevel 1 exit /b 0
 :install_product_plugin
-echo æ­£åœ¨å®‰è£…æˆ–æ›´æ–°ï¼š%PRODUCT_PLUGIN_SPEC%
+echo ÕıÔÚ°²×°»ò¸üĞÂ£º%PRODUCT_PLUGIN_SPEC%
 call "%DSH_CMD%" plugin --profile web add "%PRODUCT_PLUGIN_SPEC%"
 exit /b %ERRORLEVEL%
 
@@ -177,33 +177,84 @@ if not errorlevel 1 exit /b 0
 >> "%PRODUCT_PATCH%" echo # qianmeng-installer managed brand configuration
 >> "%PRODUCT_PATCH%" echo - id: dsh-client-ui-brand
 >> "%PRODUCT_PATCH%" echo   config:
->> "%PRODUCT_PATCH%" echo     productName: åƒæ¢¦
+>> "%PRODUCT_PATCH%" echo     productName: Ç§ÃÎ
 >> "%PRODUCT_PATCH%" echo     logoUrl: %LOGO_URL%
->> "%PRODUCT_PATCH%" echo     logoAlt: åƒæ¢¦ logo
+>> "%PRODUCT_PATCH%" echo     logoAlt: Ç§ÃÎ logo
 exit /b 0
 
 :choose_mode
-echo åƒæ¢¦ç»„ä»¶å·²å°±ç»ªã€‚
+echo Ç§ÃÎ×é¼şÒÑ¾ÍĞ÷¡£
 echo.
-echo è¯·é€‰æ‹©ä½¿ç”¨æ–¹å¼ï¼š
-echo   [1] æµè§ˆå™¨ Webï¼ˆé»˜è®¤ï¼‰
-echo   [2] åƒæ¢¦å®¢æˆ·ç«¯
-choice /c 12 /n /t 10 /d 1 /m "è¾“å…¥ç¼–å· [1]"
+echo ÇëÑ¡ÔñÊ¹ÓÃ·½Ê½£º
+echo   [1] ä¯ÀÀÆ÷ Web£¨Ä¬ÈÏ£©
+echo   [2] Ç§ÃÎ¿Í»§¶Ë
+choice /c 12 /n /t 10 /d 1 /m "ÊäÈë±àºÅ [1]"
 if errorlevel 2 goto launch_desktop
 goto launch_web
 
 :launch_desktop
 if exist "%STATE_DIR%\desktop_first_use" goto launch_desktop_now
 echo.
-echo é¦–æ¬¡å¯åŠ¨å®¢æˆ·ç«¯å¯èƒ½éœ€è¦ä¸‹è½½ Electronï¼Œè¯·è€å¿ƒç­‰å¾…ï¼›åç»­å¯åŠ¨ä¸ä¼šé‡å¤ä¸‹è½½ã€‚
+echo Ê×´ÎÆô¶¯¿Í»§¶Ë¿ÉÄÜĞèÒªÏÂÔØ Electron£¬ÇëÄÍĞÄµÈ´ı£»ºóĞøÆô¶¯²»»áÖØ¸´ÏÂÔØ¡£
 if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
 type nul > "%STATE_DIR%\desktop_first_use"
 :launch_desktop_now
 if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
+call :ensure_dsh_shim
+if errorlevel 1 goto fail
 echo ==== %date% %time% desktop launch ====>> "%LOG_FILE%"
 call "%DSH_CMD%" plugin --profile web exec dsh-web-desktop -- --port 0 2>> "%LOG_FILE%"
-if errorlevel 1 echo å¯åŠ¨å¤±è´¥ï¼Œæ—¥å¿—ï¼š%LOG_FILE%
+if errorlevel 1 echo Æô¶¯Ê§°Ü£¬ÈÕÖ¾£º%LOG_FILE%
 if errorlevel 1 pause >nul
+exit /b 0
+
+:ensure_dsh_shim
+rem ¿Í»§¶Ë²å¼şÓÃ Node spawn(ÎŞshell) Ö±½Óµ÷ÓÃÃûÎª dsh µÄ³ÌĞò£¬ÔÚ Windows/Node22 ÏÂ
+rem »áÒòÀ©Õ¹Ãû½âÎöÊ§°Ü(ENOENT)»ò¾Ü¾øÖ´ĞĞ .cmd(EINVAL)¡£´Ë´¦±àÒëÒ»¸öÔ­Éú exe ×ª·¢Æ÷£¬
+rem Í¨¹ı DSH_BIN Ö¸¶¨£¬Ê¹ spawn ÄÜÎÈ¶¨À­Æğ node bin.js¡£
+set "DSH_SHIM_EXE=%STATE_DIR%\dsh-shim.exe"
+rem ¶¨Î» node.exe
+set "DSH_SHIM_NODE="
+for /f "delims=" %%n in ('where node 2^>nul') do if not defined DSH_SHIM_NODE set "DSH_SHIM_NODE=%%n"
+if not defined DSH_SHIM_NODE set "DSH_SHIM_NODE=node.exe"
+rem ¶¨Î» dsh µÄ JS Èë¿Ú bin.js£¨%DSH_CMD% Î»ÓÚ npm È«¾Ö bin Ä¿Â¼£©
+for %%d in ("%DSH_CMD%") do set "DSH_NPM_DIR=%%~dpd"
+set "DSH_SHIM_BINJS=%DSH_NPM_DIR%node_modules\@deepseek-ai\dsh\lib\bin.js"
+if not exist "%DSH_SHIM_BINJS%" set "DSH_SHIM_BINJS=%APPDATA%\npm\node_modules\@deepseek-ai\dsh\lib\bin.js"
+rem ÒÑ±àÒëÔòÖ±½ÓÓÃ
+if exist "%DSH_SHIM_EXE%" goto shim_ready
+rem ÓÃÏµÍ³×Ô´ø csc ±àÒë shim
+set "DSH_SHIM_CSC="
+if exist "%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe" set "DSH_SHIM_CSC=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+if not defined DSH_SHIM_CSC if exist "%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe" set "DSH_SHIM_CSC=%WINDIR%\Microsoft.NET\Framework\v4.0.30319\csc.exe"
+if not defined DSH_SHIM_CSC for /f "delims=" %%c in ('dir /b /s "%WINDIR%\Microsoft.NET\Framework64\csc.exe" 2^>nul') do if not defined DSH_SHIM_CSC set "DSH_SHIM_CSC=%%c"
+if not defined DSH_SHIM_CSC for /f "delims=" %%c in ('dir /b /s "%WINDIR%\Microsoft.NET\Framework\csc.exe" 2^>nul') do if not defined DSH_SHIM_CSC set "DSH_SHIM_CSC=%%c"
+if not defined DSH_SHIM_CSC echo ÎŞ·¨ÕÒµ½ C# ±àÒëÆ÷£¬¿Í»§¶ËÄ£Ê½²»¿ÉÓÃ£¬Çë¸ÄÓÃä¯ÀÀÆ÷ Web Ä£Ê½¡£& exit /b 1
+set "DSH_SHIM_CS=%STATE_DIR%\dsh-shim.cs"
+> "%DSH_SHIM_CS%" echo using System;
+>> "%DSH_SHIM_CS%" echo using System.Diagnostics;
+>> "%DSH_SHIM_CS%" echo using System.Text;
+>> "%DSH_SHIM_CS%" echo class DshShim {
+>> "%DSH_SHIM_CS%" echo   static int Main(string[] args) {
+>> "%DSH_SHIM_CS%" echo     string node = Environment.GetEnvironmentVariable("DSH_SHIM_NODE");
+>> "%DSH_SHIM_CS%" echo     string binjs = Environment.GetEnvironmentVariable("DSH_SHIM_BINJS");
+>> "%DSH_SHIM_CS%" echo     var sb = new StringBuilder();
+>> "%DSH_SHIM_CS%" echo     sb.Append('"').Append(binjs).Append('"');
+>> "%DSH_SHIM_CS%" echo     foreach (var a in args) {
+>> "%DSH_SHIM_CS%" echo       sb.Append(' ');
+>> "%DSH_SHIM_CS%" echo       if (a.Length == 0) { sb.Append("\"\""); continue; }
+>> "%DSH_SHIM_CS%" echo       if (a.IndexOfAny(new char[]{' ','\t','"'}) == -1) { sb.Append(a); }
+>> "%DSH_SHIM_CS%" echo       else { sb.Append('"'); sb.Append(a.Replace("\\", "\\\\").Replace("\"", "\\\"")); sb.Append('"'); }
+>> "%DSH_SHIM_CS%" echo     }
+>> "%DSH_SHIM_CS%" echo     var psi = new ProcessStartInfo();
+>> "%DSH_SHIM_CS%" echo     psi.FileName = node; psi.Arguments = sb.ToString(); psi.UseShellExecute = false;
+>> "%DSH_SHIM_CS%" echo     var p = Process.Start(psi); p.WaitForExit(); return p.ExitCode;
+>> "%DSH_SHIM_CS%" echo   }
+>> "%DSH_SHIM_CS%" echo }
+"%DSH_SHIM_CSC%" /nologo /optimize /target:exe /out:"%DSH_SHIM_EXE%" "%DSH_SHIM_CS%" >nul 2>&1
+if not exist "%DSH_SHIM_EXE%" echo ¿Í»§¶ËÆô¶¯Æ÷±àÒëÊ§°Ü£¬Çë¸ÄÓÃä¯ÀÀÆ÷ Web Ä£Ê½¡£& exit /b 1
+:shim_ready
+set "DSH_BIN=%DSH_SHIM_EXE%"
 exit /b 0
 
 :launch_web
@@ -214,11 +265,11 @@ if defined BUSY_PID goto port_busy
 goto launch_web_now
 
 :port_busy
-echo ç«¯å£å·²è¢«å ç”¨ï¼š127.0.0.1:%WEB_PORT%
-echo   [1] ç»“æŸæ—§è¿›ç¨‹å¹¶é‡å¯ï¼ˆé»˜è®¤ï¼‰
-echo   [2] ç›´æ¥æ‰“å¼€å·²è¿è¡Œçš„é¡µé¢
-echo   [3] è¿”å›
-choice /c 123 /n /t 10 /d 1 /m "è¾“å…¥ç¼–å· [1]"
+echo ¶Ë¿ÚÒÑ±»Õ¼ÓÃ£º127.0.0.1:%WEB_PORT%
+echo   [1] ½áÊø¾É½ø³Ì²¢ÖØÆô£¨Ä¬ÈÏ£©
+echo   [2] Ö±½Ó´ò¿ªÒÑÔËĞĞµÄÒ³Ãæ
+echo   [3] ·µ»Ø
+choice /c 123 /n /t 10 /d 1 /m "ÊäÈë±àºÅ [1]"
 if errorlevel 3 exit /b 0
 if errorlevel 2 start "" "http://127.0.0.1:%WEB_PORT%"
 if errorlevel 2 exit /b 0
@@ -229,7 +280,7 @@ timeout /t 2 /nobreak >nul
 if not exist "%STATE_DIR%" mkdir "%STATE_DIR%" >nul 2>&1
 echo ==== %date% %time% web launch ====>> "%LOG_FILE%"
 call "%DSH_CMD%" web 2>> "%LOG_FILE%"
-if errorlevel 1 echo å¯åŠ¨å¤±è´¥ï¼Œæ—¥å¿—ï¼š%LOG_FILE%
+if errorlevel 1 echo Æô¶¯Ê§°Ü£¬ÈÕÖ¾£º%LOG_FILE%
 if errorlevel 1 pause >nul
 exit /b 0
 
@@ -253,6 +304,6 @@ call "%DSH_CMD%" --version >nul 2>nul
 exit /b %ERRORLEVEL%
 
 :fail
-echo å®‰è£…æˆ–é…ç½®å¤±è´¥ï¼Œè¯·æŸ¥çœ‹ä¸Šé¢çš„è¾“å‡ºã€‚
+echo °²×°»òÅäÖÃÊ§°Ü£¬Çë²é¿´ÉÏÃæµÄÊä³ö¡£
 pause >nul
 exit /b 1

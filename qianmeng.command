@@ -1,7 +1,7 @@
 #!/bin/bash
 # 千梦一键入口 — macOS（Linux 下也可通过 bash 运行）。
 
-QIANMENG_INSTALLER_VERSION="0.1.3"
+QIANMENG_INSTALLER_VERSION="0.1.4"
 STATE_DIR="$HOME/.qianmeng-installer"
 LOG_FILE="$STATE_DIR/qianmeng.log"
 REPO='ningbonb/qianmeng-installer'
